@@ -1,6 +1,4 @@
-package workflows
-# workflow name
-name: Build
+name: Build & release
 
 # on events
 on:
