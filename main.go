@@ -243,13 +243,13 @@ func UpdateIP(cf_email, cf_api, domain, zone_id, ip, record_id string) {
 	client := http.Client{
 		Timeout: 10 * time.Second,
 	}
-	url := "https://api.cloudflare.com/client/v4/zones/" + zone_id + "/dns_records/" + GetDNSRecordID(cf_email, cf_api, domain, zone_id)
+	url := "https://api.cloudflare.com/client/v4/zones/" + zone_id + "/dns_records/" + record_id
 	req, err := http.NewRequest("PUT", url, nil)
 	ErrHDL(err)
 	req.Header.Set("X-Auth-Email", cf_email)
 	req.Header.Set("X-Auth-Key", cf_api)
 	req.Header.Set("Content-Type", "application/json")
-	req.Body = io.NopCloser(strings.NewReader(`{"type":"A","name":"` + domain + `","content":"` + ip + `","ttl":120,"proxied":false}`))
+	req.Body = io.NopCloser(strings.NewReader(`{"type":"A","name":"` + domain + `","content":"` + ip + `","ttl":60,"proxied":false}`))
 	resp, err := client.Do(req)
 	ErrHDL(err)
 	defer resp.Body.Close()
@@ -290,14 +290,16 @@ func main() {
 		Transport: tr,
 	}
 	sdm, rdm := SplitSR(domain)
-	zone_id := GetZoneID(cf_email, cf_api, rdm)
 	ip := GetIP(client)
+	zone_id := GetZoneID(cf_email, cf_api, rdm)
 	record_id := GetDNSRecordID(cf_email, cf_api, domain, zone_id)
-	log.Println("Current IP:", ip)
-	UpdateIP(cf_email, cf_api, domain, zone_id, ip, record_id)
 	log.Println("Detected Subdomain:", sdm)
 	log.Println("Detected Root Domain:", rdm)
 	log.Println("Detected Zone ID:", zone_id)
+	log.Println("Detected Record ID:", record_id)
+	log.Println("Current IP:", ip)
+	UpdateIP(cf_email, cf_api, domain, zone_id, ip, record_id)
+	log.Println("Updating IP every", update_interval, "seconds")
 	timer := time.Tick(time.Duration(update_interval) * time.Second)
 	for _ = range timer {
 		log.Println("Connecting to Cloudflare...")
