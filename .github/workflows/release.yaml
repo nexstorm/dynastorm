@@ -1,29 +1,60 @@
-name: Build & release
+# workflow name
+name: Release
 
 # on events
 on:
   push:
-    branches:
-      - 'main'
-
-
+    tags:
+      - 'v*'
       # workflow tasks
 jobs:
   generate:
     name: Generate cross-platform builds
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
     steps:
+      - name: Check out
+        uses: actions/checkout@v3
+      - name: Get tag
+        uses: olegtarasov/get-tag@v2
+        id: tagName
+      - name: Get time
+        uses: gerred/actions/current-time@master
+        id: current-time
       - name: Checkout the repository
         uses: actions/checkout@v2
       - name: Build files
         uses: tobyxdd/go-cross-build@d00fc41eb205f57dd90f6e5af4613e21c7ebe73f
         with:
-          platforms: 'darwin/amd64,darwin/arm64,linux/amd64,linux/arm,linux/arm64,linux/mips,linux/mips64,linux/mips64le,linux/mipsle,linux/ppc64,linux/ppc64le,linux/riscv64,linux/s390x,windows/386,windows/amd64,windows/arm'
+          platforms: 'darwin/amd64,darwin/arm64,linux/386,linux/amd64,linux/arm,linux/arm64,linux/mips,linux/mips64,linux/mips64le,linux/mipsle,linux/ppc64,linux/ppc64le,linux/riscv64,linux/s390x,windows/386,windows/amd64,windows/arm'
           name: 'dynastorm'
           compress: 'false'
           dest: 'dist'
-      - name: Archive
-        uses: actions/upload-artifact@v3
+      - name: Generate hashes
+        run: |
+          cd dist
+          for f in $(find . -type f); do
+            sha256sum $f | sudo tee -a hashes.txt
+          done
+      - name: Upload
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: dist
-          path: dist
+          files: |
+            ./dist/dynastorm-darwin-amd64
+            ./dist/dynastorm-darwin-arm64
+            ./dist/dynastorm-windows-amd64.exe
+            ./dist/dynastorm-windows-386.exe
+            ./dist/dynastorm-windows-arm.exe
+            ./dist/dynastorm-linux-amd64
+            ./dist/dynastorm-linux-386
+            ./dist/dynastorm-linux-arm
+            ./dist/dynastorm-linux-arm64
+            ./dist/dynastorm-linux-s390x
+            ./dist/dynastorm-linux-mipsle
+            ./dist/dynastorm-linux-mips64
+            ./dist/dynastorm-linux-mips
+            ./dist/dynastorm-linux-ppc64
+            ./dist/hashes.txt
