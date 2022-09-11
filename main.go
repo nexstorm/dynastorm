@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/weppos/publicsuffix-go/publicsuffix"
 	"gopkg.in/yaml.v3"
 	"io"
 	"log"
@@ -138,21 +139,17 @@ var (
 
 func ErrHDL(err error) {
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 }
 
 func GetIP(client http.Client) string {
 	url := "https://www.cloudflare.com/cdn-cgi/trace"
 	resp, err := client.Get(url)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	ErrHDL(err)
 	defer resp.Body.Close()
 	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	ErrHDL(err)
 	var ip string
 	sps := string(b)
 	splitted := strings.Fields(sps)
@@ -164,28 +161,16 @@ func GetIP(client http.Client) string {
 
 func GetLastIP(domain string) string {
 	ips, err := net.ResolveIPAddr("ip4", domain)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	ErrHDL(err)
 	return ips.String()
-}
-
-func RDJUDGE(domain string) bool {
-	if strings.Count(domain, ".") == 1 {
-		return true
-	} else {
-		return false
-	}
 }
 
 func GetZoneID(email, api, domain string) string {
 	client := http.Client{
 		Timeout: 10 * time.Second,
 	}
-	url := "https://api.cloudflare.com/client/v4/zones"
+	url := "https://api.cloudflare.com/client/v4/zones?name=" + domain
 	req, err := http.NewRequest("GET", url, nil)
-	ErrHDL(err)
-	req.URL.Query().Add("name", domain)
 	req.Header.Set("X-Auth-Email", email)
 	req.Header.Set("X-Auth-Key", api)
 	req.Header.Set("Content-Type", "application/json")
@@ -204,10 +189,9 @@ func GetDNSRecordID(email, api, domain, zoneID string) string {
 	client := http.Client{
 		Timeout: 10 * time.Second,
 	}
-	url := "https://api.cloudflare.com/client/v4/zones/" + zoneID + "/dns_records"
+	url := "https://api.cloudflare.com/client/v4/zones/" + zoneID + "/dns_records?name=" + domain
 	req, err := http.NewRequest("GET", url, nil)
 	ErrHDL(err)
-	req.URL.Query().Add("name", domain)
 	req.Header.Set("X-Auth-Email", email)
 	req.Header.Set("X-Auth-Key", api)
 	req.Header.Set("Content-Type", "application/json")
@@ -222,21 +206,9 @@ func GetDNSRecordID(email, api, domain, zoneID string) string {
 	return d.Result[0].ID
 }
 
-func SplitSR(domain string) (string, string) {
-	sdm := ""
-	rdm := domain
-	if RDJUDGE(domain) {
-		sdm = "@"
-		rdm = domain
-	} else {
-		rdml := strings.Split(domain, ".")
-		for i := 0; i < len(rdml)-2; i++ {
-			sdm += rdml[i] + "."
-		}
-		sdm = strings.TrimSuffix(sdm, ".")
-		rdm = rdml[len(rdml)-2] + "." + rdml[len(rdml)-1]
-	}
-	return sdm, rdm
+func SplitSR(domain string) string {
+	rdm, _ := publicsuffix.Domain(domain)
+	return rdm
 }
 
 func UpdateIP(cf_email, cf_api, domain, zone_id, ip, record_id string) {
@@ -289,15 +261,12 @@ func main() {
 		Timeout:   10 * time.Second,
 		Transport: tr,
 	}
-	sdm, rdm := SplitSR(domain)
+	rdm := SplitSR(domain)
+	print(rdm)
 	ip := GetIP(client)
 	zone_id := GetZoneID(cf_email, cf_api, rdm)
 	record_id := GetDNSRecordID(cf_email, cf_api, domain, zone_id)
-	log.Println("Detected Subdomain:", sdm)
-	log.Println("Detected Root Domain:", rdm)
-	log.Println("Detected Zone ID:", zone_id)
-	log.Println("Detected Record ID:", record_id)
-	log.Println("Current IP:", ip)
+	log.Println("\nDetected Root Domain:", rdm, "\nDetected Zone ID:", zone_id, "\nDetected Record ID:", record_id, "\nCurrent IP:", ip)
 	UpdateIP(cf_email, cf_api, domain, zone_id, ip, record_id)
 	log.Println("Updating IP every", update_interval, "seconds")
 	timer := time.Tick(time.Duration(update_interval) * time.Second)
