@@ -20,6 +20,7 @@ func ErrHDL(err error) {
 
 func main() {
 	cfgptr := flag.String("c", "config.yaml", "config file")
+	flag.Parse()
 	err, cf_email, cf_api, domain, update_interval := config.Parseconfig(*cfgptr)
 	ErrHDL(err)
 	client := config.NewClient()
