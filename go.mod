@@ -1,4 +1,4 @@
-module dynastorm
+module github.com/nexstorm/dynastorm
 
 go 1.19
 

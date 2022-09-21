@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/weppos/publicsuffix-go/publicsuffix"
-	"gopkg.in/yaml.v3"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -238,10 +236,7 @@ func UpdateIP(cf_email, cf_api, domain, zone_id, ip, record_id string) {
 }
 
 func main() {
-	configf, err := os.ReadFile("config.yaml")
-	ErrHDL(err)
-	err = yaml.Unmarshal(configf, &cfg)
-	ErrHDL(err)
+
 	cf_email, cf_api, domain := cfg["Email"], cfg["API-key"], cfg["Domain"]
 	if cf_email == "" || cf_api == "" || domain == "" {
 		log.Fatalln("Email, API-key and Domain are required")
